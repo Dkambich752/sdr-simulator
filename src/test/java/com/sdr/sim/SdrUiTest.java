@@ -4,39 +4,33 @@ import org.junit.jupiter.api.Test;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SdrUiTest {
 
     @Test
-    public void verifyThreatDetectionRendering() {
-        // Setup Chrome to run 'Headless' (invisible) for Jenkins/AWS
+    public void verifyMissionBroadcast() {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
-
+        
         WebDriver driver = new ChromeDriver(options);
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
 
+        // POINT TO THE API ON THE SERVER ITSELF (Port 80)
+        // This validates the actual 'Mission Engine' is running
         try {
-            // 1. Navigate to the Mission Monitor
-            driver.get("http://localhost:3000");
-
-            // 2. Wait for the Axios fetch to complete (Look for ADVERSARY)
-            Thread.sleep(5000); 
-
-            // 3. Automated Validation (The 'Quality Gate')
-            String pageContent = driver.getPageSource();
+            driver.get("http://localhost/api/spectrum");
             
-            assertTrue(pageContent.contains("ADVERSARY"), "CRITICAL: Adversary signal not detected in UI!");
-            assertTrue(pageContent.contains("JAMMER"), "CRITICAL: Automated Jammer countermeasure not rendered!");
+            String pageSource = driver.getPageSource();
+            
+            // Validate the Signal Logic is broadcasting
+            assertTrue(pageSource.contains("ADVERSARY"), "CRITICAL: Threat Detection Engine Offline!");
+            assertTrue(pageSource.contains("JAMMER"), "CRITICAL: Countermeasure Logic Failed!");
 
-            System.out.println("LOG: Automated UI Verification Successful. Mission Telemetry Validated.");
-        } catch (Exception e) {
-            System.err.println("TEST FAILED: " + e.getMessage());
+            System.out.println("LOG: Mission Critical Data Stream Verified.");
         } finally {
+            // No catch block here - if it fails, Maven MUST know so it stops the build!
             driver.quit();
         }
     }
