@@ -4,13 +4,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Allows React to talk to Java
 @RestController
-public class RFController { ... }
-
-@RestController
-@RequestMapping("/api")
+@RequestMapping("/api")     // Sets the base path to /api
 public class RFController {
+
     private final RFService rfService;
 
     public RFController(RFService rfService) {
@@ -19,11 +17,16 @@ public class RFController {
 
     @GetMapping("/spectrum")
     public List<Signal> getSpectrum() {
+        // 1. Get the base signals from the service
         List<Signal> currentSpectrum = rfService.getActiveSpectrum();
         
-        // Automated Defense logic
+        // 2. Automated Defense logic: Scan for Adversaries
         Optional<Double> threatFreq = ThreatDetector.scanForThreat(currentSpectrum);
-        threatFreq.ifPresent(freq -> currentSpectrum.add(ThreatDetector.generateCounterMeasure(freq)));
+        
+        // 3. If a threat is found, automatically generate and add the Jammer signal
+        threatFreq.ifPresent(freq -> 
+            currentSpectrum.add(ThreatDetector.generateCounterMeasure(freq))
+        );
         
         return currentSpectrum;
     }
