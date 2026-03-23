@@ -7,7 +7,7 @@ function App() {
 
   useEffect(() => {
     const fetchSignals = () => {
-      axios.get('http://3.130.74.7')
+      axios.get('http://3.130.74.7/api/spectrum')
         .then(res => {
           setSignals(res.data);
           drawWaterfall(res.data);
