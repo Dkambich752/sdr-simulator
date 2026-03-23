@@ -4,10 +4,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@CrossOrigin(origins = "*") // Allows React to talk to Java
+@CrossOrigin(origins = "*", allowedHeaders = "*") // Allows any browser to read this data
 @RestController
-@RequestMapping("/api")     // Sets the base path to /api
+@RequestMapping("/api")
 public class RFController {
+    // ... your code ...
 
     private final RFService rfService;
 
@@ -31,3 +32,4 @@ public class RFController {
         return currentSpectrum;
     }
 }
+
