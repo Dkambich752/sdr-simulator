@@ -1,19 +1,16 @@
 pipeline {
     agent any
-    tools {
-        maven 'M3'
-        jdk 'JAVA_HOME'
-    }
     stages {
         stage('Build & Test') {
             steps {
-                sh 'mvn clean package -DskipTests' // Creates the .jar file
+                // We removed -DskipTests so the Selenium test runs now!
+                sh 'mvn clean package' 
             }
         }
-        stage('Docker Build') {
+        stage('Deploy') {
             steps {
-                // Build the image and tag it as 'rf-simulator'
-                sh 'docker build -t rf-simulator:latest .'
+                sh 'docker rm -f rf-sim-container || true'
+                sh 'docker run -d -p 80:8081 --name rf-sim-container rf-simulator:latest'
             }
         }
     }
