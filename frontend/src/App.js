@@ -29,7 +29,7 @@ function App() {
 
     // 2. Clear the very top row for new data
     ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, canvas.width, 10);
+    ctx.fillRect(0, 0, canvas.width, 15);
 
     // 3. Draw new signals as dots at the top
     data.forEach(s => {

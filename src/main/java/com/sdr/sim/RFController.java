@@ -4,11 +4,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@CrossOrigin(origins = "*", allowedHeaders = "*") // Allows any browser to read this data
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 @RestController
 @RequestMapping("/api")
 public class RFController {
-    // ... your code ...
 
     private final RFService rfService;
 
@@ -18,13 +17,13 @@ public class RFController {
 
     @GetMapping("/spectrum")
     public List<Signal> getSpectrum() {
-        // 1. Get the base signals from the service
+        // 1. Get the current environment
         List<Signal> currentSpectrum = rfService.getActiveSpectrum();
         
-        // 2. Automated Defense logic: Scan for Adversaries
+        // 2. Scan for the Adversary (Red)
         Optional<Double> threatFreq = ThreatDetector.scanForThreat(currentSpectrum);
         
-        // 3. If a threat is found, automatically generate and add the Jammer signal
+        // 3. If found, add the Jammer (Yellow) to the list
         threatFreq.ifPresent(freq -> 
             currentSpectrum.add(ThreatDetector.generateCounterMeasure(freq))
         );
@@ -32,4 +31,3 @@ public class RFController {
         return currentSpectrum;
     }
 }
-
