@@ -7,7 +7,6 @@ function App() {
 
   useEffect(() => {
     const fetchSignals = () => {
-      // POINTING TO YOUR AWS BACKEND
       axios.get('http://3.130.74.7/api/spectrum')
         .then(res => {
           setSignals(res.data);
@@ -23,84 +22,124 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    const padding = 60; 
+    const plotWidth = canvas.width - (padding * 2);
+    const plotHeight = canvas.height - (padding * 2);
+    const noiseFloor = -98; // The absolute bottom of our graph
 
-    // 1. BACKGROUND & GRID (Deep Navy/Black)
-    ctx.fillStyle = '#010816';
+    // 1. CLEAN WHITE BACKGROUND
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Subtle Grid Lines
-    ctx.strokeStyle = '#0a1d3a';
+    // Grid Setup
+    ctx.strokeStyle = '#EAEAEA';
     ctx.lineWidth = 1;
+    ctx.fillStyle = '#666';
+    ctx.font = '11px Courier New';
+
     for (let i = 0; i <= 10; i++) {
-        let x = (canvas.width / 10) * i;
-        let y = (canvas.height / 10) * i;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      const y = padding + (i * plotHeight / 10);
+      const x = padding + (i * plotWidth / 10);
+      ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(canvas.width - padding, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, padding); ctx.lineTo(x, canvas.height - padding); ctx.stroke();
+      
+      // Labels for dB and MHz
+      ctx.fillText(`${-(i * 10)}dB`, 10, y + 4);
+      ctx.fillText(`${2400 + (i * 10)}M`, x - 15, canvas.height - 25);
     }
 
-    // 2. CREATE HIGH-RES TRACE (800 bins)
-    let trace = new Array(800).fill(-95); 
-    trace = trace.map(v => v + (Math.random() * 3)); // Add "Vibration" noise floor
+    // 2. GENERATE HIGH-RES DATA (850 bins)
+    let trace = new Array(850).fill(noiseFloor); 
+    // Add real-time noise jitter at the bottom
+    trace = trace.map(v => v + (Math.random() * 2)); 
 
-    // 3. MAP REAL SIGNALS TO GAUSSIAN PEAKS
+    // 3. APPLY ACCURATE GAUSSIAN CURVES
     data.forEach(s => {
-      const centerIdx = Math.floor((s.frequency - 2400) * 8);
-      for (let i = -20; i <= 20; i++) {
+      const xPos = padding + ((s.frequency - 2400) * (plotWidth / 100));
+      const centerIdx = Math.floor(xPos);
+      
+      // ACCURACY FIX: Calculate how much the signal "rises" above the floor
+      // e.g. -80dBm rise is (-80 - (-98)) = 18dBm rise.
+      const signalRise = s.power - noiseFloor;
+
+      // BANDWIDTH FIX: Narrower peaks (1.5 for threats, 1.0 for friendlies)
+      const spread = (s.type === 'ADVERSARY' || s.type === 'JAMMER') ? 1.5 : 1.0;
+
+      // Draw the curve for this signal
+      for (let i = -15; i <= 15; i++) {
         const idx = centerIdx + i;
-        if (idx >= 0 && idx < 800) {
-          // Gaussian Bell Curve for smooth peaks
-          const curve = s.power * Math.exp(-(i * i) / 45); 
-          if (curve > trace[idx]) trace[idx] = curve;
+        if (idx >= padding && idx < (canvas.width - padding)) {
+          // Formula: NoiseFloor + (RiseAmount * BellCurve)
+          const bellValue = noiseFloor + (signalRise * Math.exp(-(i * i) / (spread * 2.5)));
+          if (bellValue > trace[idx]) trace[idx] = bellValue;
         }
       }
     });
 
-    // 4. DRAW THE BLUE TRACE LINE
+    // 4. DRAW SOLID FILLED TRACE (THE "BLUE MOUNTAIN")
     ctx.beginPath();
-    ctx.strokeStyle = '#00d4ff'; // ELECTRIC BLUE
-    ctx.lineWidth = 2.5;
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = '#00d4ff';
-    
+    ctx.moveTo(padding, canvas.height - padding); 
+
     trace.forEach((dbm, x) => {
-      // Map dBm to Y-axis coordinates
-      const y = canvas.height - (Math.abs(dbm + 100) * (canvas.height / 100));
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      if (x < padding || x > (canvas.width - padding)) return;
+      // Map dBm to Y pixels (Absolute value math)
+      const y = padding + (Math.abs(dbm) * (plotHeight / 100));
+      ctx.lineTo(x, y);
     });
+
+    ctx.lineTo(canvas.width - padding, canvas.height - padding);
+    ctx.closePath();
+
+    // Fill with Gradient
+    const gradient = ctx.createLinearGradient(0, padding, 0, canvas.height - padding);
+    gradient.addColorStop(0, '#0055AA'); // Dark Blue Top
+    gradient.addColorStop(1, '#F0F7FF'); // Light Blue Bottom
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Dark Blue Outline
+    ctx.strokeStyle = '#003366';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 5. DRAW PEAK MARKERS (Red for Threat, Yellow for Jammer)
-    ctx.shadowBlur = 0;
+    // 5. IDENTIFICATION LABELS (Accurate Positioning)
     data.forEach(s => {
       if (s.type === 'ADVERSARY' || s.type === 'JAMMER') {
-        const x = (s.frequency - 2400) * 8;
-        const y = canvas.height - (Math.abs(s.power + 100) * (canvas.height / 100));
+        const x = padding + ((s.frequency - 2400) * (plotWidth / 100));
+        const y = padding + (Math.abs(s.power) * (plotHeight / 100));
         
-        ctx.fillStyle = s.type === 'ADVERSARY' ? '#ff3333' : '#ffff00';
-        ctx.font = 'bold 11px Courier New';
-        ctx.fillText(`${s.type}: ${s.frequency.toFixed(1)}MHz`, x + 10, y - 10);
+        ctx.fillStyle = s.type === 'ADVERSARY' ? 'red' : '#CC9900';
+        ctx.font = 'bold 12px Arial';
+        ctx.fillText(s.type, x - 25, y - 15);
         
-        // Circular Marker Dot
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fill();
+        // Marker Line
+        ctx.strokeStyle = s.type === 'ADVERSARY' ? 'red' : '#CC9900';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 10); ctx.stroke();
       }
     });
   };
 
   return (
-    <div style={{ backgroundColor: '#020202', color: '#00d4ff', minHeight: '100vh', padding: '20px', fontFamily: 'Courier New' }}>
-      <h1 style={{ textShadow: '0 0 15px #00d4ff', letterSpacing: '2px' }}>🛰️ STRATEGIC SPECTRUM ANALYZER v2.5 [BLUE]</h1>
-      <div style={{ display: 'flex', gap: '20px' }}>
-        <canvas ref={canvasRef} width="800" height="450" style={{ border: '2px solid #0a1d3a', borderRadius: '4px' }} />
-        <div style={{ flex: 1, padding: '15px', border: '1px solid #0a1d3a', backgroundColor: '#010816', borderRadius: '4px' }}>
-          <h3 style={{ color: '#00d4ff', borderBottom: '1px solid #0a1d3a' }}>MISSION TELEMETRY</h3>
+    <div style={{ backgroundColor: '#F0F2F5', minHeight: '100vh', padding: '40px', fontFamily: 'Arial' }}>
+      <h1 style={{ textAlign: 'center', color: '#003366', marginBottom: '30px', textTransform: 'uppercase', letterSpacing: '2px' }}>
+        Software Defined Radio Threat Detection Signal Jammer
+      </h1>
+      
+      <div style={{ display: 'flex', gap: '30px', justifyContent: 'center', alignItems: 'flex-start' }}>
+        {/* Main Spectrum Plot */}
+        <canvas ref={canvasRef} width="850" height="500" style={{ backgroundColor: '#FFF', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }} />
+        
+        {/* Metric Sidebar */}
+        <div style={{ width: '320px', padding: '20px', backgroundColor: '#FFF', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ borderBottom: '2px solid #003366', color: '#003366', paddingBottom: '10px' }}>SIGNAL METRICS</h3>
           {signals.map((s, i) => (
             <div key={i} style={{ 
-              color: s.type === 'ADVERSARY' ? '#ff3333' : (s.type === 'JAMMER' ? '#ffff00' : '#00d4ff'), 
-              fontSize: '13px', marginBottom: '6px' 
+              color: s.type === 'ADVERSARY' ? 'red' : (s.type === 'JAMMER' ? '#CC9900' : '#0055AA'), 
+              padding: '10px 0', borderBottom: '1px solid #EEE', fontSize: '14px' 
             }}>
-              [{s.type}] {s.frequency.toFixed(2)} MHz | {s.power.toFixed(1)} dBm
+              <strong>{s.type}</strong><br />
+              {s.frequency.toFixed(2)} MHz | {s.power.toFixed(1)} dBm
             </div>
           ))}
         </div>
