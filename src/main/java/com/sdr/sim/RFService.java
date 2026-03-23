@@ -10,10 +10,11 @@ public class RFService {
         for (int i = 0; i < 5; i++) {
             spectrum.add(new Signal(2400 + r.nextInt(100), -70 - r.nextInt(20), "FRIENDLY"));
         }
-        // Add a small random offset to make the signal look "alive"
-        double powerFlicker = -30.0 - (new Random().nextDouble() * 5.0);
-        spectrum.add(new Signal(2442.0, powerFlicker, "ADVERSARY")); 
-        //spectrum.add(new Signal(2442.0, -30.0, "ADVERSARY")); 
+        // Add frequency drift (wiggle) and power flicker (pulse)
+        double drift = (r.nextDouble() - 0.5) * 1.5; 
+        double flicker = -30.0 - (r.nextDouble() * 5.0);
+        spectrum.add(new Signal(2442.0 + drift, flicker, "ADVERSARY")); 
+
         return spectrum;
     }
 }
